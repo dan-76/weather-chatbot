@@ -173,6 +173,20 @@ class rain_nowcast:
             return p.group(1)
 
     def get_nowcast_data(self, lat, lon):
+        """This is to download default url with parameter data as below:
+
+        Parameters
+        ----------
+        lat : latitude of location in Hong Kong
+        lon : longitude of location in Hong Kong
+
+
+        url -- url + parameters(lat, lon)
+        result_img_list -- images of forcasts in url
+        result_list -- keywords of rain forcasts in url
+        time_list -- time frame accordingly of rain forcasts in url
+        zip_result -- zipping of time_list & result_list
+        """
         self.url = self.update_url(lat,lon)
 
         self.driver.get(self.url)
