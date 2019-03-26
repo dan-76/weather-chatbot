@@ -14,6 +14,19 @@ import re
 import unittest
 from textwrap import dedent
 
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+
+try:
+    import urlparse
+    from urllib import urlencode
+except: # For Python 3
+    import urllib.parse as urlparse
+    from urllib.parse import urlencode
+
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters
@@ -26,6 +39,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 class current_weather:
     url = 'http://rss.weather.gov.hk/rss/CurrentWeather.xml' 
     url_uc = 'http://rss.weather.gov.hk/rss/CurrentWeather_uc.xml' 
+
+    def __init__(self):
+        pass
 
     def search_or_empty(self, pattern, string):
         result = re.search(pattern, string)
@@ -111,6 +127,86 @@ class current_weather:
         return result
 
 
+class rain_nowcast:
+    url = ''
+
+    def __init__(self):
+        options = webdriver.ChromeOptions()
+        options.add_argument('headless')
+        self.driver = webdriver.Chrome(r'..\chromedriver.exe', options=options)
+
+    def __del__(self):
+        self.driver.quit()
+    
+    def update_url(self, lat, lon):
+        base_url = r'https://www.weather.gov.hk/m/nowcast/hk_rainfall_uc.htm'
+        params = {'lat':str(lat),'lon':str(lon)}
+        url_parts = list(urlparse.urlparse(base_url))
+        query = dict(urlparse.parse_qsl(url_parts[4]))
+        query.update(params)
+        url_parts[4] = urlencode(query)
+        return urlparse.urlunparse(url_parts)
+
+    def map_rain_result(self, in_list, long=False):
+        result_dict_long = {
+            'noRain' : "無雨或0.5毫米以下",
+            'rain01' : "小雨: 0.5 毫米 - 2.5 毫米",
+            'rain02' : "中雨: 2.5 毫米 - 10 毫米",
+            'rain03' : "大雨: 10 毫米或以上圖示"
+        }
+        result_dict_short = {
+            'noRain' : "無雨",
+            'rain01' : "小雨",
+            'rain02' : "中雨",
+            'rain03' : "大雨"
+        }
+        if not long:
+            return [result_dict_short[x] for x in in_list]
+        else:
+            return [result_dict_long[x] for x in in_list]
+
+    def noRain_or_result(self, rpath):
+        p = re.search(r'images/(.*).png', rpath)
+        if p is None:
+            return 'noRain'
+        else:
+            return p.group(1)
+
+    def get_nowcast_data(self, lat, lon):
+        self.url = self.update_url(lat,lon)
+
+        self.driver.get(self.url)
+        try:
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, './/div[@id="fcImageDiv01"]')))
+        except TimeoutException:
+            pass
+        
+        xpath_imgs = './/div[contains(@id,"timeSeriesImgDiv0")]/img'
+        result_imgs = [x.get_attribute("src") for x in self.driver.find_elements_by_xpath(xpath_imgs)]
+        self.result_img_list = [self.noRain_or_result(x) for x in result_imgs]
+        self.result_list = self.map_rain_result(self.result_img_list)
+
+        xpath_time = './/td[contains(@id,"timeLabel0")]'
+        self.time_list = [x.text for x in self.driver.find_elements_by_xpath(xpath_time)]
+
+        self.zip_result = [x for x in zip(['<' + x for x in self.time_list[1:]], self.result_list)]
+
+    def scrape_result(self):
+        if all(x=='noRain' for x in self.result_img_list):
+            result_umb = ''
+        else:
+            result_umb = '來緊兩小時會落雨, 記得帶遮'
+        result_nowcast = '\n'.join(["{}: {}".format(z,y) for z,y in self.zip_result])
+        result = dedent(f"""
+        {result_umb}
+
+        天氣預測:
+        """)
+        result += dedent(f"""{result_nowcast}""")
+
+        return result
+
+
 class weathertelebot:
     def __init__(self, tgToken):
         self.token = tgToken
@@ -137,6 +233,15 @@ class weathertelebot:
 
         get_weather_handler = CommandHandler('weather', get_weather)
         dispatcher.add_handler(get_weather_handler)
+
+        def echo_location(bot, update):
+            r1 = rain_nowcast()
+            r1.get_nowcast_data(update.message.location.latitude,update.message.location.longitude)
+            bot.send_message(chat_id=update.message.chat_id, text=r1.scrape_result())
+            del r1
+
+        echolo_handler = MessageHandler(Filters.location, echo_location)
+        dispatcher.add_handler(echolo_handler)
 
     def start_bot_host(self):
         self.updater.start_polling()
