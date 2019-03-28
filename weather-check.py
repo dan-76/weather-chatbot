@@ -152,13 +152,15 @@ class rain_nowcast:
             'noRain' : "無雨或0.5毫米以下",
             'rain01' : "小雨: 0.5 毫米 - 2.5 毫米",
             'rain02' : "中雨: 2.5 毫米 - 10 毫米",
-            'rain03' : "大雨: 10 毫米或以上圖示"
+            'rain03' : "大雨: 10 毫米或以上圖示",
+            'none' : "無"
         }
         result_dict_short = {
             'noRain' : "無雨",
             'rain01' : "小雨",
             'rain02' : "中雨",
-            'rain03' : "大雨"
+            'rain03' : "大雨",
+            'none' : "無"
         }
         if not long:
             return [result_dict_short[x] for x in in_list]
@@ -168,7 +170,7 @@ class rain_nowcast:
     def noRain_or_result(self, rpath):
         p = re.search(r'images/(.*).png', rpath)
         if p is None:
-            return 'noRain'
+            return 'none'
         else:
             return p.group(1)
 
@@ -206,10 +208,10 @@ class rain_nowcast:
         self.zip_result = [x for x in zip(['<' + x for x in self.time_list[1:]], self.result_list)]
 
     def scrape_result(self):
-        if all(x=='noRain' for x in self.result_img_list):
-            result_umb = ''
-        else:
+        if any(x in ['rain01','rain02','rain03'] for x in self.result_img_list):
             result_umb = '來緊兩小時會落雨, 記得帶遮'
+        else:
+            result_umb = ''
         result_nowcast = '\n'.join(["{}: {}".format(z,y) for z,y in self.zip_result])
         result = dedent(f"""
         {result_umb}
