@@ -236,7 +236,8 @@ class weathertelebot:
             text=dedent("""
             You can control me by sending these commands:
             
-            /weather - get the current weather report"""))
+            /weather - get the current weather report
+            Send location - get rain forcast for the location"""))
 
         start_handler = CommandHandler('start', start)
         dispatcher.add_handler(start_handler)
