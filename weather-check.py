@@ -11,7 +11,6 @@ from bs4 import BeautifulSoup, CData
 import dateutil.parser
 from dateutil import tz
 import re
-import unittest
 from textwrap import dedent
 
 from selenium import webdriver
@@ -36,7 +35,7 @@ import logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.INFO)
 
 
-class current_weather:
+class currentWeather:
     url = 'http://rss.weather.gov.hk/rss/CurrentWeather.xml' 
     url_uc = 'http://rss.weather.gov.hk/rss/CurrentWeather_uc.xml' 
 
@@ -127,13 +126,14 @@ class current_weather:
         return result
 
 
-class rain_nowcast:
+class rainNowcast:
     url = ''
+    driver_path = r'..\chromedriver.exe'
 
     def __init__(self):
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        self.driver = webdriver.Chrome(r'..\chromedriver.exe', options=options)
+        self.driver = webdriver.Chrome(self.driver_path, options=options)
 
     def __del__(self):
         self.driver.quit()
@@ -251,7 +251,7 @@ class weathertelebot:
         dispatcher.add_handler(start_handler)
 
         def get_weather(bot, update):
-            c1 = current_weather()
+            c1 = currentWeather()
             c1.get_rss_data()
             bot.send_message(chat_id=update.message.chat_id, text=c1.scrape_result())
             del c1
@@ -260,7 +260,7 @@ class weathertelebot:
         dispatcher.add_handler(get_weather_handler)
 
         def echo_location(bot, update):
-            r1 = rain_nowcast()
+            r1 = rainNowcast()
             r1.get_nowcast_data(update.message.location.latitude,update.message.location.longitude)
             bot.send_message(chat_id=update.message.chat_id, text=r1.scrape_result())
             del r1
@@ -270,7 +270,6 @@ class weathertelebot:
 
     def start_bot_host(self):
         self.updater.start_polling()
-
 
 if __name__ == '__main__':
     import argparse
