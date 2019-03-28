@@ -174,6 +174,22 @@ class rain_nowcast:
         else:
             return p.group(1)
 
+    def initiate_with_url(self, url):
+        self.driver.get(url)
+        try:
+            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, './/div[@id="fcImageDiv01"]')))
+        except TimeoutException:
+            pass
+
+    def get_src_by_xpath(self, xpath):
+        return [x.get_attribute("src") for x in self.driver.find_elements_by_xpath(xpath)]
+    
+    def get_text_by_xpath(self,xpath):
+        return [x.text for x in self.driver.find_elements_by_xpath(xpath)]
+
+    def forcast_will_rain(self):
+        return any(x in ['rain01','rain02','rain03'] for x in self.result_img_list)
+
     def get_nowcast_data(self, lat, lon):
         """This is to download default url with parameter data as below:
 
@@ -190,25 +206,17 @@ class rain_nowcast:
         zip_result -- zipping of time_list & result_list
         """
         self.url = self.update_url(lat,lon)
-
-        self.driver.get(self.url)
-        try:
-            WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, './/div[@id="fcImageDiv01"]')))
-        except TimeoutException:
-            pass
+        self.initiate_with_url(self.url)
         
-        xpath_imgs = './/div[contains(@id,"timeSeriesImgDiv0")]/img'
-        result_imgs = [x.get_attribute("src") for x in self.driver.find_elements_by_xpath(xpath_imgs)]
+        result_imgs = self.get_src_by_xpath('.//div[contains(@id,"timeSeriesImgDiv0")]/img')
         self.result_img_list = [self.noRain_or_result(x) for x in result_imgs]
         self.result_list = self.map_rain_result(self.result_img_list)
-
-        xpath_time = './/td[contains(@id,"timeLabel0")]'
-        self.time_list = [x.text for x in self.driver.find_elements_by_xpath(xpath_time)]
+        self.time_list = self.get_text_by_xpath('.//td[contains(@id,"timeLabel0")]')
 
         self.zip_result = [x for x in zip(['<' + x for x in self.time_list[1:]], self.result_list)]
 
     def scrape_result(self):
-        if any(x in ['rain01','rain02','rain03'] for x in self.result_img_list):
+        if self.forcast_will_rain():
             result_umb = '來緊兩小時會落雨, 記得帶遮'
         else:
             result_umb = ''
