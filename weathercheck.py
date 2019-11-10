@@ -10,7 +10,9 @@ from urllib.request import urlopen
 from bs4 import BeautifulSoup, CData
 import dateutil.parser
 from dateutil import tz
+import unittest
 import re
+import os
 from textwrap import dedent
 
 from selenium import webdriver
@@ -270,6 +272,15 @@ class weathertelebot:
 
     def start_bot_host(self):
         self.updater.start_polling()
+
+
+class TestRainNowcast(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_driver_path(self):
+        self.assertTrue(os.path.isfile(rainNowcast.driver_path))
+
 
 if __name__ == '__main__':
     import argparse
